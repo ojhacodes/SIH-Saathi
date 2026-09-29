@@ -18,3 +18,10 @@
 .option.correct:disabled:hover{background:#d6ecce}
 .option.wrong:disabled:hover{background:#f8d6cc}
 .sequence-item.wrong{background:#f8d6cc;border-color:#a34139}
+.voice-blooms{align-self:flex-end;display:flex;align-items:flex-end;gap:9px;min-height:90px;margin:12px 10px;color:#ebbd74;pointer-events:none}
+.voice-blooms span{display:inline-block;animation:flower-float 3.6s ease-in-out infinite}
+.voice-blooms span:first-child{font-size:4.5rem;line-height:1}
+.voice-blooms span:nth-child(2){font-size:2.7rem;line-height:1.2;color:#b8d5b2;animation-delay:-1.2s}
+.voice-blooms span:last-child{font-size:1.4rem;align-self:center;color:#fff;animation-delay:-2.4s}
+@keyframes flower-float{50%{transform:translateY(-7px) rotate(8deg)}}
+@media(prefers-reduced-motion:reduce){.voice-blooms span{animation:none}}
