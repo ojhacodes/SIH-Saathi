@@ -1,26 +1,43 @@
 export const DOMAINS = ['memory', 'attention', 'routine', 'pattern'];
 
+function speechText(text) {
+  return String(text ?? '')
+    .normalize('NFC')
+    .toLocaleLowerCase()
+    .replace(/[!?.,;:।,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function hindiIntent(text) {
-  const words=String(text).toLowerCase();
-  if (/दवा|पानी|याद दिल|आज क्या|रिमाइंड|remind/.test(words)) return 'reminders';
-  if (/ध्यान|ढूंढ|खोज/.test(words)) return 'attention';
-  if (/दिनचर्या|क्रम/.test(words)) return 'routine';
-  if (/पैटर्न|आकार/.test(words)) return 'pattern';
-  if (/याददाश्त|यादों|टोकरी|खेल/.test(words)) return 'memory';
-  if (/अगला/.test(words)) return 'next';
-  if (/वापस|बंद/.test(words)) return 'back';
+  const words=speechText(text);
+  if (/दवा|दवाई|दवाइ|दवाएं|पानी|जल|याद दिल|याद दिला|आज (की )?याद|आज क्या|रिमाइंड|यादें/.test(words)) return 'reminders';
+  if (/ध्यान|ढूंढ|ढूँढ|खोज|फल|सही वस्तु/.test(words)) return 'attention';
+  if (/पैटर्न|आकार|अगली चीज|अगला आकार/.test(words)) return 'pattern';
+  if (/दिनचर्या|रूटीन|रोजमर्रा|सही क्रम/.test(words)) return 'routine';
+  if (/याददाश्त|याद शक्ति|स्मृति|यादों का खेल|मेमोरी/.test(words)) return 'memory';
+  if (/खेल|गेम/.test(words)) return 'games';
+  if (/अगला|आगे|जारी|चलो आगे/.test(words)) return 'next';
+  if (/वापस|पीछे|बंद|होम|मुख्य/.test(words)) return 'back';
+  if (/देखभाल|केयरगिवर|परिवार/.test(words)) return 'caregiver';
+  if (/साथी|बातचीत|कंपेनियन/.test(words)) return 'companion';
+  if (/सेटिंग|सेटिंग्स/.test(words)) return 'settings';
   return 'help';
 }
 
 export function englishIntent(text) {
-  const words = String(text).toLowerCase();
-  if (/remind|medicine|water|today|schedule/.test(words)) return 'reminders';
-  if (/attention|find|fruit|search/.test(words)) return 'attention';
-  if (/routine|daily|steps|order/.test(words)) return 'routine';
-  if (/pattern|sequence/.test(words)) return 'pattern';
-  if (/memory|basket|game/.test(words)) return 'memory';
-  if (/next|continue/.test(words)) return 'next';
-  if (/back|home|stop/.test(words)) return 'back';
+  const words = speechText(text);
+  if (/remind|reminder|medicine|medication|pill|water|hydration|today('?s)? reminders|schedule|what('s| is) today/.test(words)) return 'reminders';
+  if (/attention|find|fruit|search|spot|look for/.test(words)) return 'attention';
+  if (/pattern|sequence|what comes next|next shape/.test(words)) return 'pattern';
+  if (/routine|daily|daily steps|order the steps/.test(words)) return 'routine';
+  if (/memory|remember|basket|memory game/.test(words)) return 'memory';
+  if (/open games|show games|games|game menu/.test(words)) return 'games';
+  if (/next|continue|forward|go on/.test(words)) return 'next';
+  if (/back|home|stop|exit|quit/.test(words)) return 'back';
+  if (/caregiver|care team|family/.test(words)) return 'caregiver';
+  if (/companion|talk to saathi|conversation/.test(words)) return 'companion';
+  if (/settings|preferences/.test(words)) return 'settings';
   return 'help';
 }
 

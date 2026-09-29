@@ -10,13 +10,18 @@ test('adaptive levels respond to recent performance',()=>{
 });
 test('Hindi voice intents distinguish the memory game from reminders',()=>{
   assert.equal(hindiIntent('याददाश्त खेल शुरू करो'),'memory');
+  assert.equal(hindiIntent('दवाई की याद दिलाओ'),'reminders');
   assert.equal(hindiIntent('दवा की याद दिलाओ'),'reminders');
   assert.equal(hindiIntent('ध्यान खेल'),'attention');
+  assert.equal(hindiIntent('खेल खोलो'),'games');
+  assert.equal(hindiIntent('देखभाल खोलो'),'caregiver');
 });
 test('English voice intents follow the selected language',()=>{
   assert.equal(englishIntent('start the memory game'),'memory');
   assert.equal(englishIntent('read my medicine reminders'),'reminders');
   assert.equal(englishIntent('find the fruit'),'attention');
+  assert.equal(englishIntent('open games'),'games');
+  assert.equal(englishIntent('open caregiver'),'caregiver');
 });
 test('caregiver averages are per domain and decline needs six days of real play',()=>{
   const sessions=Array.from({length:6},(_,i)=>({domain:'memory',score:i<3?80:40,date:`2026-09-${String(i+1).padStart(2,'0')}T10:00:00Z`}));

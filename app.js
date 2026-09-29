@@ -81,7 +81,8 @@ function speak(message, force=false, overrideLang=null) {
   const lang = overrideLang || (state.language === 'as' ? 'as-IN' : state.language === 'hi' ? 'hi-IN' : 'en-IN');
   if (!('speechSynthesis' in window)) {const clips=lang==='hi-IN'?hindiClips(message):[];if(clips.length){playClips(clips);return true;}return false;}
   const voices = speechSynthesis.getVoices();
-  const voice = voices.find(v => v.lang.toLowerCase() === lang.toLowerCase()) || (lang === 'as-IN' ? voices.find(v => v.lang.toLowerCase()==='hi-in') : null);
+  const languagePrefix = lang.slice(0, 2).toLowerCase();
+  const voice = voices.find(v => v.lang.toLowerCase() === lang.toLowerCase()) || voices.find(v => v.lang.toLowerCase().startsWith(`${languagePrefix}-`)) || (lang === 'as-IN' ? voices.find(v => v.lang.toLowerCase().startsWith('hi-')) : null);
   if (!voice && lang === 'hi-IN') { const clips=hindiClips(message);if(clips.length){playClips(clips);return true;}toast(tr('voiceMissing'), true);return false; }
   if (!voice && lang !== 'en-IN') { toast(tr('voiceMissing'), true); return false; }
   playing?.pause();
@@ -101,16 +102,35 @@ function listen() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) return toast(tr('unsupported'),true);
   if (listening) { recognition?.stop(); return; }
-  recognition = new SpeechRecognition(); recognition.lang=state.language==='en'?'en-IN':'hi-IN'; recognition.interimResults=false; recognition.maxAlternatives=1;
-  recognition.onresult=e=>{ const heard=e.results[0][0].transcript.toLowerCase(); toast(`${loc('Heard','सुना','শুনিলোঁ')}: ${heard}`); command(heard); };
-  recognition.onerror=()=>toast(tr('unsupported'),true);
+  recognition = new SpeechRecognition();
+  recognition.lang=state.language==='en'?'en-IN':state.language==='hi'?'hi-IN':'as-IN';
+  recognition.interimResults=false; recognition.continuous=false; recognition.maxAlternatives=1;
+  recognition.onstart=()=>{ listening=true; render(); };
+  recognition.onresult=e=>{
+    const result=e.results[e.resultIndex ?? 0]?.[0];
+    const heard=result?.transcript?.trim();
+    if(heard){ toast(`${loc('Heard','सुना','শুনিলোঁ')}: ${heard}`); command(heard); }
+  };
+  recognition.onerror=e=>{
+    listening=false;
+    const message={
+      'not-allowed':loc('Allow microphone access to use voice commands.','वॉइस कमांड के लिए माइक्रोफ़ोन की अनुमति दें।','ভইচ কমাণ্ডৰ বাবে মাইক্ৰ’ফোনৰ অনুমতি দিয়ক।'),
+      'service-not-allowed':loc('Voice recognition is blocked by this browser.','इस ब्राउज़र ने वॉइस पहचान रोक दी है।','এই ব্ৰাউজাৰে ভইচ চিনাক্তকৰণ বন্ধ কৰিছে।'),
+      'audio-capture':loc('No microphone was found. Check the device settings.','माइक्रोफ़ोन नहीं मिला। डिवाइस की सेटिंग जाँचें।','মাইক্ৰ’ফোন পোৱা নগ’ল। ডিভাইচৰ ছেটিং চাওক।'),
+      'no-speech':loc('I did not hear anything. Please try again.','कुछ सुनाई नहीं दिया। फिर कोशिश करें।','একো শুনা নগ’ল। পুনৰ চেষ্টা কৰক।'),
+      'network':loc('Voice recognition needs a network connection.','वॉइस पहचान के लिए इंटरनेट कनेक्शन चाहिए।','ভইচ চিনাক্তকৰণৰ বাবে ইণ্টাৰনেট সংযোগ লাগে।')
+    }[e.error] || tr('unsupported');
+    toast(message,true); render();
+  };
   recognition.onend=()=>{ listening=false; render(); };
-  try { recognition.start(); listening=true; render(); } catch { toast(tr('unsupported'),true); }
+  try { recognition.start(); } catch { listening=false; toast(tr('unsupported'),true); render(); }
 }
 function command(text) {
   const intent=state.language==='en'?englishIntent(text):hindiIntent(text);
   if(intent==='reminders')return readToday();
   if(DOMAINS.includes(intent))return startGame(intent);
+  if(intent==='games'){game=null;view='games';render();return;}
+  if(['caregiver','settings','companion'].includes(intent)){game=null;view=intent;render();if(intent==='companion')loadCompanionStatus();return;}
   if(intent==='next'&&game?.feedback)return advanceGame();
   if(intent==='back'){game=null;view='patient';render();return;}
   speak(loc('You can say: memory game, attention game, reminders, or go back.','आप कह सकते हैं: याददाश्त खेल, ध्यान खेल, दवा की याद, या वापस।','আপুনি হিন্দীত ক’ব পাৰে: याददाश्त खेल, ध्यान खेल, दवा की याद, বা वापस।'),true);
@@ -321,7 +341,7 @@ $app.addEventListener('click',async event=>{const button=event.target.closest('[
   if(action==='clear-sample'){state.sessions=state.sessions.filter(s=>!s.demo);state.demoMode=false;save();render();}
 });
 $app.addEventListener('submit',event=>{event.preventDefault();const form=event.target;const values=Object.fromEntries(new FormData(form));if(form.id==='companion-form'){const message=String(values.message||'').trim();if(message)sendCompanion(message);return;}if(form.id==='profile-form'&&state.family?.role!=='viewer'){state.profile={name:values.name.trim(),updatedAt:now()};save();render();toast(loc('Saved.','सहेजा गया।','সংৰক্ষণ হ’ল।'));}if(form.id==='reminder-form'&&state.family?.role!=='viewer'){const titles={en:values.titleEn?.trim()||values.title,hi:values.titleHi?.trim()||values.title,as:values.titleAs?.trim()||values.title};titles[state.language]=values.title.trim();state.reminders.push({id:uid(),...values,title:titles.en,titleHi:titles.hi,titleAs:titles.as,active:true,updatedAt:now()});save();render();toast(loc('Reminder saved.','याद सहेजी गई।','সোঁৱৰণি সংৰক্ষণ হ’ল।'));}if(form.id==='join-shared')joinShared(form);if(form.id==='create-family')familyAction('create',form);if(form.id==='connect-family')familyAction('connect',form);if(form.id==='connect-viewer')familyAction('viewer',form);});
-$app.addEventListener('change',event=>{if(event.target.id==='language'){playing?.pause();if('speechSynthesis' in window)speechSynthesis.cancel();document.querySelector('.toast')?.remove();state.language=event.target.value;companionAudio?.pause();updateGamePrompt();save();render();}if(event.target.id==='companion-share'){companionShareReminders=event.target.checked;}if(event.target.id==='voice-toggle'){state.voice=event.target.checked;save();}});
+$app.addEventListener('change',event=>{if(event.target.id==='language'){if(listening){recognition?.stop();listening=false;}playing?.pause();if('speechSynthesis' in window)speechSynthesis.cancel();document.querySelector('.toast')?.remove();state.language=event.target.value;companionAudio?.pause();updateGamePrompt();save();render();}if(event.target.id==='companion-share'){companionShareReminders=event.target.checked;}if(event.target.id==='voice-toggle'){state.voice=event.target.checked;save();}});
 window.addEventListener('online',()=>{render();sync();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.family)sync();});
 setInterval(()=>{if(state.family&&navigator.onLine&&!document.hidden&&!document.activeElement?.matches('input,textarea,select'))sync();},15_000);window.addEventListener('offline',render);
