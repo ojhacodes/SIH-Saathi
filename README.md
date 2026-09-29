@@ -7,7 +7,7 @@ Tablet-first, offline-first cognitive games and memory support with a caregiver 
 | Area | Prototype boundary |
 | --- | --- |
 | Family sync | Works across devices through the local Node server or Vercel Functions with Upstash Redis. A sharing ID grants full access; user authentication and revocation are future work. |
-| AI companion | Text replies work when a reachable Qwen model service is running. A model on a laptop does not power a deployed site after that laptop is off. |
+| AI companion | This prototype shows the chat and voice interface. The full human-like conversation companion is planned for the final release and needs a reachable Qwen model service. |
 | Hindi/English voice | Browser speech is a fallback. Live Bhashini speech needs credentials and has not yet been verified. Voice quality and availability vary by device. |
 | Reminders and caregiver insights | Notifications run while the app is open. Game scores are activity indicators, not a clinical assessment. |
 | Assamese conversation | The interface is translated; companion chat currently supports Hindi and English. |
@@ -55,7 +55,7 @@ The model download happens on first launch. Saathi checks `/health` and sends ch
 
 Bhashini handles speech, not conversation reasoning. Keep all Bhashini credentials on the server. For pipeline discovery, set `BHASHINI_USER_ID`, `BHASHINI_ULCA_API_KEY`, and `BHASHINI_PIPELINE_ID` in the server environment. Alternatively set `BHASHINI_INFERENCE_URL`, `BHASHINI_INFERENCE_KEY`, and language-specific service IDs (`BHASHINI_ASR_HI`, `BHASHINI_TTS_HI`, `BHASHINI_ASR_EN`, `BHASHINI_TTS_EN`). Mic recordings are sent as 16 kHz WAV to the server and from there to Bhashini only when voice input is used. When Bhashini TTS is connected, generated reply text is sent there for automatic spoken playback after each answer or when the user taps Hear reply. If Bhashini is not configured, the app tries browser speech recognition and device speech synthesis where available. Voice availability varies by browser and installed system voices. The Bhashini integration is adapter-tested with mock responses; live Bhashini speech remains unverified until credentials are supplied.
 
-Saathi identifies itself as AI, avoids medical advice, and directs urgent situations to trusted people and emergency services. It is a companionship prototype, not a clinical or crisis service.
+The full human-like conversation companion is a final-release feature; this SIH prototype demonstrates the interface, language flow, safety boundaries, and integration points. Saathi identifies itself as AI, avoids medical advice, and directs urgent situations to trusted people and emergency services. It is a companionship prototype, not a clinical or crisis service.
 
 ## Vercel deployment
 

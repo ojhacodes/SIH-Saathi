@@ -92,6 +92,14 @@ function speak(message, force=false, overrideLang=null) {
   speechSynthesis.speak(utterance);
   return true;
 }
+function refreshVoiceControls() {
+  $app.querySelectorAll('[data-action="listen"]').forEach(button => {
+    button.innerHTML = `🎙 ${listening ? tr('listening') : tr('listen')}`;
+    button.classList.toggle('recording', listening);
+    button.setAttribute('aria-pressed', String(listening));
+  });
+  $app.querySelectorAll('.assistant-orb').forEach(orb => orb.classList.toggle('breathing', listening));
+}
 function promptText() { return game?.prompt || tr('helper'); }
 function readToday() {
   const items=state.reminders.filter(r=>r.active && !r.deleted && !isDone(`${day()}:${r.id}`));
@@ -105,7 +113,7 @@ function listen() {
   recognition = new SpeechRecognition();
   recognition.lang=state.language==='en'?'en-IN':state.language==='hi'?'hi-IN':'as-IN';
   recognition.interimResults=false; recognition.continuous=false; recognition.maxAlternatives=1;
-  recognition.onstart=()=>{ listening=true; render(); };
+  recognition.onstart=()=>{ listening=true; refreshVoiceControls(); };
   recognition.onresult=e=>{
     const result=e.results[e.resultIndex ?? 0]?.[0];
     const heard=result?.transcript?.trim();
@@ -120,10 +128,10 @@ function listen() {
       'no-speech':loc('I did not hear anything. Please try again.','कुछ सुनाई नहीं दिया। फिर कोशिश करें।','একো শুনা নগ’ল। পুনৰ চেষ্টা কৰক।'),
       'network':loc('Voice recognition needs a network connection.','वॉइस पहचान के लिए इंटरनेट कनेक्शन चाहिए।','ভইচ চিনাক্তকৰণৰ বাবে ইণ্টাৰনেট সংযোগ লাগে।')
     }[e.error] || tr('unsupported');
-    toast(message,true); render();
+    toast(message,true); refreshVoiceControls();
   };
-  recognition.onend=()=>{ listening=false; render(); };
-  try { recognition.start(); } catch { listening=false; toast(tr('unsupported'),true); render(); }
+  recognition.onend=()=>{ listening=false; refreshVoiceControls(); };
+  try { recognition.start(); } catch { listening=false; toast(tr('unsupported'),true); refreshVoiceControls(); }
 }
 function command(text) {
   const intent=state.language==='en'?englishIntent(text):hindiIntent(text);
@@ -158,7 +166,7 @@ function patientPage() {
   return `<section class="hero"><div class="hero-copy"><span class="eyebrow">✳ ${tr('today')} · ${new Date().toLocaleDateString(locale(),{weekday:'long',day:'numeric',month:'long'})}</span><h1>${tr('welcome')}<br><span style="color:#397157">${esc(profileName())}.</span></h1><p class="lead">${tr('lead')}</p><button class="button" data-action="nav" data-view="games">${tr('explore')} <span>↗</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-mark">🌼</div><div class="art-caption">${loc('SMALL STEPS, BRIGHTER DAYS','छोटे कदम, खुशहाल दिन','সৰু খোজ, উজ্জ্বল দিন')} <span>↗</span></div></div></section>${companionFeature()}<div class="grid three"><div class="card"><span class="eyebrow">${tr('achievements')}</span><div class="stat">${played}</div><span class="muted">${tr('completed')}</span></div><div class="card"><span class="eyebrow">${tr('avg')}</span><div class="stat">${avg.length?Math.round(avg.reduce((a,b)=>a+b,0)/avg.length)+'%':'—'}</div><span class="muted">${tr('score')}</span></div><div class="card"><span class="eyebrow">${tr('todayDone')}</span><div class="stat">${done}/${active.length}</div><div class="progress"><span style="width:${active.length?done/active.length*100:0}%"></span></div></div></div><div class="section-head"><div><span class="eyebrow">01 / ${loc('DAILY RHYTHM','रोज़ का साथ','দৈনন্দিন সংগ')}</span><h2>${tr('reminders')}</h2></div><button class="button alt" data-action="nav" data-view="caregiver">${tr('manage')} ↗</button></div><div class="grid two"><div class="card">${reminderRows()}</div>${assistant()}</div><div class="section-head"><div><span class="eyebrow">02 / ${loc('PLAY & PRACTISE','खेल और अभ्यास','খেল আৰু অনুশীলন')}</span><h2>${tr('practice')}</h2></div><p>${loc('Four gentle ways to practise, with difficulty that responds to recent play.','चार सहज खेल, जिनका स्तर आपके अभ्यास के साथ बदलता है।','চাৰিটা সহজ খেল, যাৰ স্তৰ আপোনাৰ অনুশীলনৰ লগে লগে সলনি হয়।')}</p></div>${gameCards()}`;
 }
 function companionFeature() {
-  return `<section class="companion-feature"><div class="companion-feature-icon" aria-hidden="true">✦</div><div><span class="eyebrow">${loc('NEW · VOICE COMPANION','नया · आवाज़ साथी','নতুন · কণ্ঠ সাথী')}</span> ${prototypeTag()}<h2>${loc('A conversation, whenever you need one.','जब मन करे, दिल से बात करें।','মন গ’লে কথা পাতক।')}</h2><p>${loc('Speak or type in Hindi or English. Saathi listens, responds, and stays with the conversation.','हिंदी या अंग्रेज़ी में बोलें या लिखें। साथी आपकी बात सुनता है और जवाब देता है।','হিন্দী বা ইংৰাজীত কওক বা লিখক। সাথীয়ে শুনি উত্তৰ দিয়ে।')}</p></div><button class="button companion-cta" data-action="nav" data-view="companion">${loc('Talk to Saathi','साथी से बात करें','সাথীৰ সৈতে কথা পাতক')} ↗</button></section>`;
+  return `<section class="companion-feature"><div class="companion-feature-icon" aria-hidden="true">✦</div><div><span class="eyebrow">${loc('NEW · VOICE COMPANION','नया · आवाज़ साथी','নতুন · কণ্ঠ সাথী')}</span> ${prototypeTag()}<h2>${loc('A conversation, whenever you need one.','जब मन करे, दिल से बात करें।','মন গ’লে কথা পাতক।')}</h2><p>${loc('Speak or type in Hindi or English. Saathi listens, responds, and stays with the conversation.','हिंदी या अंग्रेज़ी में बोलें या लिखें। साथी आपकी बात सुनता है और जवाब देता है।','হিন্দী বা ইংৰাজীত কওক বা লিখক। সাথীয়ে শুনি উত্তৰ দিয়ে।')}</p><p class="tiny">${loc('Prototype: the full human-like conversation companion will be enabled in the final release.','प्रोटोटाइप: इंसान जैसी पूरी बातचीत वाला साथी अंतिम रिलीज़ में उपलब्ध होगा।','প্ৰ’ট’টাইপ: মানুহৰ দৰে সম্পূৰ্ণ কথোপকথন সাথী চূড়ান্ত সংস্কৰণত থাকিব।')}</p></div><button class="button companion-cta" data-action="nav" data-view="companion">${loc('Talk to Saathi','साथी से बात करें','সাথীৰ সৈতে কথা পাতক')} ↗</button></section>`;
 }
 function companionLanguage() { return state.language==='hi'?'hi':'en'; }
 function companionPage() {
