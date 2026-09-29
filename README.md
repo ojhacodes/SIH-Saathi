@@ -6,7 +6,7 @@ Tablet-first, offline-first cognitive games and memory support with a caregiver 
 
 | Area | Prototype boundary |
 | --- | --- |
-| Family sync | Works across devices through the Node server locally or Netlify Functions and Blobs online. A sharing ID grants full access; user authentication and revocation are future work. |
+| Family sync | Works across devices through the local Node server or Vercel Functions with Upstash Redis. A sharing ID grants full access; user authentication and revocation are future work. |
 | AI companion | Text replies work when a reachable Qwen model service is running. A model on a laptop does not power a deployed site after that laptop is off. |
 | Hindi/English voice | Browser speech is a fallback. Live Bhashini speech needs credentials and has not yet been verified. Voice quality and availability vary by device. |
 | Reminders and caregiver insights | Notifications run while the app is open. Game scores are activity indicators, not a clinical assessment. |
@@ -23,7 +23,7 @@ npm start
 
 Open [http://127.0.0.1:4173](http://127.0.0.1:4173). Run the checks with `npm test`.
 
-The local Node server stores shared data in `saathi.sqlite` in this directory. The file is ignored by Git. For a persistent Node deployment, set `PORT`, `HOST`, and optionally `SAATHI_DB` (a writable persistent path), serve over HTTPS, and back up the database. The Netlify deployment uses Functions and Netlify Blobs instead; its family spaces do not share the local SQLite database. A sharing ID is a 128-bit random access secret: anyone with it can read, edit, or delete that space. Share it privately; there is no password recovery or identity verification in this prototype.
+The local Node server stores shared data in `saathi.sqlite` in this directory. The file is ignored by Git. For Vercel, connect an Upstash Redis database from the Vercel Marketplace so `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are available. Without those variables, the app stays usable locally but family sync returns a clear storage configuration error. A sharing ID is a 128-bit random access secret: anyone with it can read, edit, or delete that space. Share it privately; there is no password recovery or identity verification in this prototype.
 
 ## Demo
 
@@ -51,16 +51,14 @@ npm start
 
 The model download happens on first launch. Saathi checks `/health` and sends chat requests to `/v1/chat/completions`. If the model is unavailable, chat shows a clear error and preserves the unsent message; it does not invent a canned AI answer. Qwen3 is an open model, but a production inference server still needs compute and hosting. Bhashini is optional for speech and is not required for text replies.
 
-**Deployment:** a model running on your laptop cannot serve a public deployment once the laptop is off. Deploy the Node app and a persistent model service on the same server, or point the Netlify Function at a separately hosted llama.cpp compatible endpoint. Configure `LLAMA_URL`, `LLAMA_MODEL` (the model ID accepted by that endpoint), and optional `LLAMA_API_KEY` in the **server environment**. Do not put the key in browser code. Keep the model endpoint private or require authentication. Free local inference is possible on hardware you control; a permanently available public AI service needs an always-on host and may incur hosting costs. Without it, text chat clearly reports that AI is unavailable; games and family sync still work.
+**Deployment:** a model running on your laptop cannot serve a public deployment once the laptop is off. Point the Vercel Function at a separately hosted llama.cpp compatible endpoint. Configure `LLAMA_URL`, `LLAMA_MODEL` (the model ID accepted by that endpoint), and optional `LLAMA_API_KEY` in the **server environment**. Do not put the key in browser code. Keep the model endpoint private or require authentication. Free local inference is possible on hardware you control; a permanently available public AI service needs an always-on host and may incur hosting costs. Without it, text chat clearly reports that AI is unavailable; games and reminders still work.
 
 Bhashini handles speech, not conversation reasoning. Keep all Bhashini credentials on the server. For pipeline discovery, set `BHASHINI_USER_ID`, `BHASHINI_ULCA_API_KEY`, and `BHASHINI_PIPELINE_ID` in the server environment. Alternatively set `BHASHINI_INFERENCE_URL`, `BHASHINI_INFERENCE_KEY`, and language-specific service IDs (`BHASHINI_ASR_HI`, `BHASHINI_TTS_HI`, `BHASHINI_ASR_EN`, `BHASHINI_TTS_EN`). Mic recordings are sent as 16 kHz WAV to the server and from there to Bhashini only when voice input is used. When Bhashini TTS is connected, generated reply text is sent there for automatic spoken playback after each answer or when the user taps Hear reply. If Bhashini is not configured, the app tries browser speech recognition and device speech synthesis where available. Voice availability varies by browser and installed system voices. The Bhashini integration is adapter-tested with mock responses; live Bhashini speech remains unverified until credentials are supplied.
 
 Saathi identifies itself as AI, avoids medical advice, and directs urgent situations to trusted people and emergency services. It is a companionship prototype, not a clinical or crisis service.
 
-## Netlify deployment
+## Vercel deployment
 
-`netlify.toml` builds only browser assets into `dist/` and deploys the `/api/*` Function. The Function stores family spaces in Netlify Blobs, which persists across deploys. Deploy through a Git-connected Netlify project or the Netlify CLI with functions enabled. Uploading only `dist/` through the drag-and-drop interface creates a static site without the API.
-
-After deployment, open `/api/companion/status`: it should return JSON. `model: false` means the Function is running but no reachable AI model is configured. The site works for games, reminders, offline use, and family sync without Bhashini. To enable AI and Bhashini, set their credentials only in Netlify environment variables and redeploy. Netlify uses its own family storage, so a local SQLite family code is not automatically imported.
+Vercel builds the browser assets with `npm run build` and deploys the handler in `api/index.js`. The local development server is named `local-server.js` so Vercel does not mistake the SQLite server entrypoint for a serverless function. After deployment, open `/api/companion/status`: it should return JSON. `model: false` means the Function is running but no reachable AI model is configured. Install Upstash Redis from the Vercel Marketplace and redeploy to enable family sync. Set AI and Bhashini credentials only as Vercel environment variables.
 
 Local SQLite files, environment files, logs, `node_modules`, and downloaded model weights are ignored. The published `dist/` contains only browser files and bundled demo audio. Do not commit API keys, real family data, chat exports, or model weights. A previous GitHub upload included `saathi.sqlite`; the current tree removes it, but the old Git commit still contains it. If its IDs or data were real, replace the shared IDs and remove the file from Git history before treating the repository as private or secure.

@@ -1,14 +1,9 @@
 import { randomBytes, pbkdf2Sync, timingSafeEqual, createHash } from 'node:crypto';
-import { getStore } from '@netlify/blobs';
-import { mergeData } from '../../core.js';
-import { cleanData } from '../../data-core.js';
-import { createCompanionService } from '../../companion.js';
-import { createBhashiniClient } from '../../bhashini.js';
-
-export const config = {
-  path: '/api/*',
-  rateLimit: { action: 'rate_limit', aggregateBy: 'ip', windowSize: 60, windowLimit: 90 }
-};
+import { mergeData } from './core.js';
+import { cleanData } from './data-core.js';
+import { createCompanionService } from './companion.js';
+import { createBhashiniClient } from './bhashini.js';
+import { createRedisStore } from './redis-store.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const passwordHash = (passphrase, salt) => pbkdf2Sync(passphrase, salt, 210_000, 32, 'sha256').toString('hex');
@@ -23,9 +18,9 @@ async function readBody(request) {
   try{return JSON.parse(raw||'{}');}catch{throw Object.assign(Error('Invalid JSON.'),{status:400});}
 }
 
-export function createApi({ store = name => getStore({ name, consistency:'strong' }), companion = createCompanionService(), bhashini = createBhashiniClient() } = {}) {
+export function createApi({ store = createRedisStore(), companion = createCompanionService(), bhashini = createBhashiniClient() } = {}) {
   return async (request, context = {}) => {
-    const pathname = new URL(request.url).pathname;
+    const pathname = context.pathname || new URL(request.url).pathname;
     const method = request.method;
     const spaces = store('saathi-spaces');
     const sessions = store('saathi-sessions');
@@ -60,6 +55,7 @@ export function createApi({ store = name => getStore({ name, consistency:'strong
       }
       if(pathname==='/api/companion/status'&&method==='GET')return json(200,{
         model:await companion.available(),modelName:companion.model,
+        sync:!!(process.env.UPSTASH_REDIS_REST_URL&&process.env.UPSTASH_REDIS_REST_TOKEN),
         speech:{hi:{asr:bhashini.available('asr','hi'),tts:bhashini.available('tts','hi')},en:{asr:bhashini.available('asr','en'),tts:bhashini.available('tts','en')}}
       });
       if(pathname.startsWith('/api/companion/')&&method==='POST'){
@@ -159,5 +155,3 @@ export function createApi({ store = name => getStore({ name, consistency:'strong
     }
   };
 }
-
-export default (request,context) => createApi()(request,context);

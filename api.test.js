@@ -1,6 +1,7 @@
+// API contract tests run against the Vercel-compatible handler.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createApi } from './netlify/functions/api.mjs';
+import { createApi } from './api-core.js';
 
 function fakeStores() {
   const stores=new Map();let version=0;
@@ -20,7 +21,7 @@ function fakeStores() {
   };
 }
 
-test('Netlify API syncs family spaces and enforces one-use read-only care access',async()=>{
+test('API syncs family spaces and enforces one-use read-only care access',async()=>{
   const api=createApi({store:fakeStores(),companion:{model:'Qwen3',available:async()=>false},bhashini:{available:()=>false}});
   const call=async(path,method='GET',body,token)=>{
     const headers={'Content-Type':'application/json'};if(token)headers.Authorization=`Bearer ${token}`;
