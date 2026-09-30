@@ -87,10 +87,10 @@ The visual language is inspired by [SIH Buddy](https://www.sihbuddy.in/): large 
 
 - **Prominent entry:** A high-contrast feature panel on the patient home view and a dedicated navigation tab.
 - **Language:** The site language drives the companion's Hindi or English text, model prompt, speech recognition and speech synthesis. Switching language starts a fresh chat. Assamese site copy shows a clear Hindi/English choice until Assamese conversation is implemented.
-- **Reasoning model:** Qwen3 4B GGUF through llama.cpp-compatible chat API. Backend sends the last ten turns and a short safety and language prompt. The backend accepts `LLAMA_URL`, `LLAMA_MODEL`, and optional `LLAMA_API_KEY` so production can use a separately hosted model. If the model is unavailable, the UI shows an error instead of a canned reply.
-- **Voice:** Bhashini ASR accepts 16 kHz WAV; Bhashini TTS returns audio. Browser speech APIs are the fallback. Credentials stay server-side.
+- **Reasoning model:** Groq-hosted `openai/gpt-oss-120b` receives the last ten turns and a short safety and language prompt through the backend. `GROQ_API_KEY` stays server-side. If the provider is unavailable, the UI shows an error instead of a canned reply.
+- **Voice:** In Talk to Saathi, Sarvam Saaras/Bulbul transcribes and speaks Hindi only. Groq Whisper/Orpheus handles English; replies longer than Orpheus's 200-character limit use device speech. Microphone audio is sent as 16 kHz WAV. `SARVAM_API_KEY` stays server-side.
 - **Consent and privacy:** The reminder-sharing checkbox defaults off. Conversation is stored locally and syncs to a shared space when ID sharing is enabled. The sharing ID grants full access and must be kept private. Do not portray the AI as a person, clinician or emergency service.
-- **Demo status:** UI and backend are implemented, with adapter unit tests and text-chat browser checks. Live free-model conversation requires a running llama.cpp-compatible model service; live Bhashini voice requires the user's credentials.
+- **Demo status:** UI and backend are implemented and adapter-tested with mocked provider responses. Live Groq and Sarvam calls still need to be checked after the user adds both keys to the deployed Vercel project.
 
 ## Shared space extension
 

@@ -7,7 +7,7 @@ import { randomBytes, pbkdf2Sync, timingSafeEqual, createHash } from 'node:crypt
 import { DatabaseSync } from 'node:sqlite';
 import { mergeData } from './core.js';
 import { createCompanionService } from './companion.js';
-import { createBhashiniClient } from './bhashini.js';
+import { createSarvamClient } from './sarvam.js';
 import { cleanData } from './data-core.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -24,7 +24,9 @@ const hash = text => createHash('sha256').update(text).digest('hex');
 const failedLogins = new Map();
 const companionCalls = new Map();
 const companion = createCompanionService();
-const bhashini = createBhashiniClient();
+const sarvam = createSarvamClient();
+const speechAvailable = (kind, language) => language === 'hi' ? sarvam.available(kind, language) : companion.speechAvailable(kind, language);
+const speechProvider = language => language === 'hi' ? sarvam : companion;
 const passwordHash = (passphrase, salt) => pbkdf2Sync(passphrase, salt, 210_000, 32, 'sha256').toString('hex');
 const json = (res, status, data) => { res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff' });res.end(JSON.stringify(data)); };
 const body = async req => { let bytes=0;const chunks=[];for await(const chunk of req){bytes+=chunk.length;if(bytes>1_000_000)throw Error('Request too large');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}'); };
@@ -49,7 +51,7 @@ async function handleApi(req,res,pathname) {
     }
     if(pathname==='/api/companion/status'&&req.method==='GET')return json(res,200,{
       model:await companion.available(), modelName:companion.model,
-      speech:{hi:{asr:bhashini.available('asr','hi'),tts:bhashini.available('tts','hi')},en:{asr:bhashini.available('asr','en'),tts:bhashini.available('tts','en')}}
+      speech:{hi:{asr:speechAvailable('asr','hi'),tts:speechAvailable('tts','hi')},en:{asr:speechAvailable('asr','en'),tts:speechAvailable('tts','en')}}
     });
     if(pathname.startsWith('/api/companion/')&&req.method==='POST'){
       const key=req.socket.remoteAddress||'local';const recent=(companionCalls.get(key)||[]).filter(time=>Date.now()-time<60_000);
@@ -63,16 +65,16 @@ async function handleApi(req,res,pathname) {
         return json(res,200,await companion.reply(message,language,input.history,input.reminders));
       }
       if(pathname==='/api/companion/transcribe'){
-        if(!bhashini.available('asr',language))return json(res,503,{error:'Bhashini speech recognition is not connected.'});
+        if(!speechAvailable('asr',language))return json(res,503,{error:'Speech recognition is not connected.'});
         const audio=typeof input.audioContent==='string'?input.audioContent:'';
         if(!audio||audio.length>800_000||!/^[A-Za-z0-9+/=]+$/.test(audio))return json(res,400,{error:'Invalid audio recording.'});
-        return json(res,200,{text:await bhashini.transcribe(audio,language)});
+        return json(res,200,{text:await speechProvider(language).transcribe(audio)});
       }
       if(pathname==='/api/companion/speak'){
-        if(!bhashini.available('tts',language))return json(res,503,{error:'Bhashini speech synthesis is not connected.'});
+        if(!speechAvailable('tts',language))return json(res,503,{error:'Speech synthesis is not connected.'});
         const message=typeof input.text==='string'?input.text.trim():'';
         if(!message||message.length>1200)return json(res,400,{error:'Invalid text for speech.'});
-        const audio=await bhashini.synthesize(message,language);
+        const audio=await speechProvider(language).synthesize(message);
         res.writeHead(200,{'Content-Type':'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(audio);
       }
     }

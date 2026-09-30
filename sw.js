@@ -1,4 +1,4 @@
-const CACHE = 'saathi-v18';
+const CACHE = 'saathi-v19';
 const AUDIO = ['hello','remember','remember-question','attention','routine','pattern','correct','retry','done','reminders','reminders-done','medicine','water','walk','appointment','help'].map(name => `/voice/${name}.wav`);
 const ASSETS = ['/', '/index.html', '/styles.css', '/app.js', '/core.js', '/companion-core.js', '/icon.svg', '/manifest.webmanifest', ...AUDIO];
 self.addEventListener('install', event => {

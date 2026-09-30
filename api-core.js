@@ -2,7 +2,7 @@ import { randomBytes, pbkdf2Sync, timingSafeEqual, createHash } from 'node:crypt
 import { mergeData } from './core.js';
 import { cleanData } from './data-core.js';
 import { createCompanionService } from './companion.js';
-import { createBhashiniClient } from './bhashini.js';
+import { createSarvamClient } from './sarvam.js';
 import { createRedisStore } from './redis-store.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -18,7 +18,10 @@ async function readBody(request) {
   try{return JSON.parse(raw||'{}');}catch{throw Object.assign(Error('Invalid JSON.'),{status:400});}
 }
 
-export function createApi({ store = createRedisStore(), companion = createCompanionService(), bhashini = createBhashiniClient() } = {}) {
+export function createApi({ store = createRedisStore(), companion = createCompanionService(), sarvam = createSarvamClient() } = {}) {
+  const speechAvailable = (kind, language) => language === 'hi' ? sarvam.available(kind, language) : companion.speechAvailable(kind, language);
+  const speechProvider = language => language === 'hi' ? sarvam : companion;
+  const companionCalls = new Map();
   return async (request, context = {}) => {
     const pathname = context.pathname || new URL(request.url).pathname;
     const method = request.method;
@@ -56,9 +59,13 @@ export function createApi({ store = createRedisStore(), companion = createCompan
       if(pathname==='/api/companion/status'&&method==='GET')return json(200,{
         model:await companion.available(),modelName:companion.model,
         sync:!!(process.env.UPSTASH_REDIS_REST_URL&&process.env.UPSTASH_REDIS_REST_TOKEN),
-        speech:{hi:{asr:bhashini.available('asr','hi'),tts:bhashini.available('tts','hi')},en:{asr:bhashini.available('asr','en'),tts:bhashini.available('tts','en')}}
+        speech:{hi:{asr:speechAvailable('asr','hi'),tts:speechAvailable('tts','hi')},en:{asr:speechAvailable('asr','en'),tts:speechAvailable('tts','en')}}
       });
       if(pathname.startsWith('/api/companion/')&&method==='POST'){
+        const key=context.ip||'unknown';
+        const recent=(companionCalls.get(key)||[]).filter(time=>Date.now()-time<60_000);
+        if(recent.length>=24)return error(429,'Please wait a moment before trying again.');
+        recent.push(Date.now());companionCalls.set(key,recent);
         const input=await readBody(request);
         const language=['hi','en'].includes(input.language)?input.language:null;
         if(!language)return error(400,'Choose Hindi or English.');
@@ -68,16 +75,16 @@ export function createApi({ store = createRedisStore(), companion = createCompan
           return json(200,await companion.reply(message,language,input.history,input.reminders));
         }
         if(pathname==='/api/companion/transcribe'){
-          if(!bhashini.available('asr',language))return error(503,'Bhashini speech recognition is not connected.');
+          if(!speechAvailable('asr',language))return error(503,'Speech recognition is not connected.');
           const audio=typeof input.audioContent==='string'?input.audioContent:'';
           if(!audio||audio.length>800_000||!/^[A-Za-z0-9+/=]+$/.test(audio))return error(400,'Invalid audio recording.');
-          return json(200,{text:await bhashini.transcribe(audio,language)});
+          return json(200,{text:await speechProvider(language).transcribe(audio)});
         }
         if(pathname==='/api/companion/speak'){
-          if(!bhashini.available('tts',language))return error(503,'Bhashini speech synthesis is not connected.');
+          if(!speechAvailable('tts',language))return error(503,'Speech synthesis is not connected.');
           const message=typeof input.text==='string'?input.text.trim():'';
           if(!message||message.length>1200)return error(400,'Invalid text for speech.');
-          const audio=await bhashini.synthesize(message,language);
+          const audio=await speechProvider(language).synthesize(message);
           return new Response(audio,{headers:{'Content-Type':'audio/wav','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
         }
       }

@@ -22,7 +22,7 @@ function fakeStores() {
 }
 
 test('API syncs family spaces and enforces one-use read-only care access',async()=>{
-  const api=createApi({store:fakeStores(),companion:{model:'Qwen3',available:async()=>false},bhashini:{available:()=>false}});
+  const api=createApi({store:fakeStores(),companion:{model:'Groq',available:async()=>false,speechAvailable:()=>false},sarvam:{available:()=>false}});
   const call=async(path,method='GET',body,token)=>{
     const headers={'Content-Type':'application/json'};if(token)headers.Authorization=`Bearer ${token}`;
     const response=await api(new Request(`https://example.test${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),{ip:'127.0.0.1'});
@@ -50,4 +50,31 @@ test('API syncs family spaces and enforces one-use read-only care access',async(
   assert.equal((await call('/api/data')).status,401);
   const status=await call('/api/companion/status');
   assert.deepEqual({status:status.status,model:status.data.model},{status:200,model:false});
+});
+
+test('companion routes Hindi voice to Sarvam, English voice and all chat to Groq',async()=>{
+  const calls=[];
+  const companion={model:'Groq',available:async()=>true,speechAvailable:(kind,language)=>language==='en',
+    reply:async(message,language)=>{calls.push(`groq:chat:${language}`);return {text:`Hi ${message}`,mode:'model'};},
+    transcribe:async()=>{calls.push('groq:asr');return 'Hello';},
+    synthesize:async()=>{calls.push('groq:tts');return Buffer.from('EN');}};
+  const sarvam={available:(kind,language)=>language==='hi',
+    transcribe:async()=>{calls.push('sarvam:asr');return 'नमस्ते';},
+    synthesize:async()=>{calls.push('sarvam:tts');return Buffer.from('HI');}};
+  const api=createApi({store:fakeStores(),companion,sarvam});
+  const post=async(path,body)=>api(new Request(`https://example.test/api/companion/${path}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+  }),{ip:'192.0.2.1'});
+  const status=await api(new Request('https://example.test/api/companion/status'));
+  assert.deepEqual((await status.json()).speech,{hi:{asr:true,tts:true},en:{asr:true,tts:true}});
+  assert.equal((await (await post('reply',{message:'Hello',language:'en'})).json()).text,'Hi Hello');
+  assert.equal((await (await post('reply',{message:'नमस्ते',language:'hi'})).json()).text,'Hi नमस्ते');
+  for(const language of ['en','hi']){
+    const transcribed=await post('transcribe',{language,audioContent:'YWJj'});
+    assert.equal(transcribed.status,200);
+    const spoken=await post('speak',{language,text:'Hello'});
+    assert.equal(spoken.status,200);
+    assert.equal(spoken.headers.get('content-type'),'audio/wav');
+  }
+  assert.deepEqual(calls,['groq:chat:en','groq:chat:hi','groq:asr','groq:tts','sarvam:asr','sarvam:tts']);
 });
